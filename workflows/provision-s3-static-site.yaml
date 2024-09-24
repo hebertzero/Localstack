@@ -1,0 +1,45 @@
+name: Create S3 Static Site
+
+on:
+  issues:
+    type:
+      -opened
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Set up AWS ClI # criando setup da aws com credenciais com a pipeline
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secret.AWS_ACCESS_key_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Extract Bucket Name from Issue # extrai no nome da issue q triggar no nome do bucket name  
+          run: |
+            export BUCKET_NAME=$(echo "${{ github.event.issue.title }}")
+            echo "Bucket Name: $BUCKET_NAME"
+            echo "BUCKET_NAME=#BUCKET_NAME" >> $GITHUB_ENV
+
+      - name: Run Terraform # roda o codigo do terraform criado para cloud
+          run: |
+            cd terraform
+            cd s3-bucket-static
+            terrafom init
+            terraform apply -auto-approve-var="bucket_name=${{ env.BUCKET_NAME }}"
+
+      - name: Add commet # adiciona um comentario ao cloud pelo repository
+          run: gh issue comment "$NUMBER" --repo "$REPO" --body "$BODY"
+          env:
+            GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+            NUMBER: ${{ github.evente.issue.number}}
+            repo: ${{ github.repository }}
+            body: >
+              Seu bucket foi criado com sucesso<3
+
+
